@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BIDHAN SMS Bomber —</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">📱</div>
+            <h1>BIDHAN SMS Bomber</h1>
+            <p class="subtitle">Bangladesh Mobile Numbers</p>
+            <div class="auth-badge">✅ Authorized Pentest Environment</div>
+        </header>
+
+        <div class="main-card">
+            <form id="smsForm">
+                <div class="form-group">
+                    <label for="number">Target Phone Number</label>
+                    <input type="tel" id="number" placeholder="017XXXXXXXX" required>
+                    <small class="hint">BD format: 017XXXXXXXX</small>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="threads">Parallel Threads</label>
+                        <input type="number" id="threads" value="10" min="1" max="30">
+                    </div>
+                    <div class="form-group">
+                        <label for="count">SMS Count</label>
+                        <input type="number" id="count" value="30" min="1" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="delay">Delay (sec)</label>
+                        <input type="number" id="delay" value="0.3" min="0.1" step="0.1">
+                    </div>
+                </div>
+
+                <button type="submit" id="startBtn">
+                    <span class="btn-icon">🚀</span>
+                    <span class="btn-text">Start Fucking 🖕</span>
+                </button>
+            </form>
+
+            <div id="status" class="hidden">
+                <h3>⚡ Attack in Progress</h3>
+                <div class="progress-container">
+                    <div id="progressBar" class="progress-bar"></div>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-box total">
+                        <span class="stat-label">Total</span>
+                        <span id="total" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-box success-box">
+                        <span class="stat-label">✅ Success</span>
+                        <span id="successCount" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-box fail-box">
+                        <span class="stat-label">❌ Failed</span>
+                        <span id="failCount" class="stat-value">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="results" class="hidden">
+                <div class="results-header">
+                    <h3>📋 Attack Results</h3>
+                    <button onclick="this.parentElement.parentElement.classList.add('hidden')" class="close-btn">✕</button>
+                </div>
+                <pre id="resultJson"></pre>
+            </div>
+        </div>
+
+        <footer>
+            <p>⚠️ Authorized Bidhan Chandro Ray</p>
+            <p class="footer-small">Only For Fun</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
